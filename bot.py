@@ -24,28 +24,21 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
     await bot.wait_until_ready()  # Wait until the bot is fully ready
+    sendAlbum.start()
 
-@tasks.loop(hours=24)
-async def sendAlbum():
-    thread=bot.get_channel(1128454083917922366)#id for album of the day thread
-    if thread:
-        album=getRecommendation()
-        if album:
-            await thread.send(f"```Today's album of the day: \n{album[1]}- {album[2]}.\nGenre: {album[3]}\nReleased: {album[4]}.\n Recommended by: {album[5]}\n {album[6]}```")
-            print("the album of the day is",album)
-        else:
-            await thread.send("I have no items in my database.")
- 
-@sendAlbum.before_loop
-async def setTime():
-    #Calculate the delay until the next 10 AM CST
+@tasks.loop(hours=1)
+async def sendAlbum(override=None):
     now = datetime.datetime.now(tz=datetime.timezone.utc)
-    target_time = datetime.datetime(now.year, now.month, now.day, 10, 0, 0, tzinfo=datetime.timezone.utc)
-    if now.hour >= 10:  # If it's already past 10 AM, schedule it for the next day
-        target_time += datetime.timedelta(days=1)
-    delta = target_time - now
-    await asyncio.sleep(delta.total_seconds())
-  
+    if now.hour==15 or override:#10am cst
+        thread=bot.get_channel(1228434151464505465)#id for album of the day thread
+        if thread:
+            album=getRecommendation()
+            if album:
+                await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
+                print("the album of the day is",album)
+            else:
+                await thread.send("I have no items in my database :(")
+
 @bot.command()
 async def recommend(ctx, *, args):
     # Split the arguments by commas
@@ -77,7 +70,7 @@ async def recommend(ctx, *, args):
             release_date = top_album['release_date']
             username = ctx.author.name
             addAlbum(album, artist, genres_str, release_date, username, link)
-            await ctx.send("Album added. Thanks!")
+            await ctx.send(f"Thanks for the recommendation, {username}.\nI added {album_name} to the database!")
         else:
             await ctx.send("Sorry, I could not find your album")
     else:
@@ -96,7 +89,7 @@ async def getQueue(ctx):
     f.truncate() # Truncate the file
     albums = getDB()
     for album in albums:
-        f.write(album + "\n")
+        f.write(album + "\n\n")
     f.close()  # Close the file
 
     if albums:
@@ -116,5 +109,13 @@ async def removeItem(ctx,title: str):
     else:
         await ctx.send("You do not have permissions to remove items.")
 
+@bot.command()
+async def reroll(ctx):
+    username=ctx.author.name
+    if username=="thisgreer":
+        await sendAlbum(1)#send the 1 as an override to the loop
+    else:
+        await ctx.send("You do not have permissions to reroll the album.")
+        
 bot.run(DISCORD_TOKEN)
 input("Press Enter to exit...")

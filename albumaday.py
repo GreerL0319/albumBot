@@ -1,4 +1,3 @@
-
 import sqlite3 
 conn=sqlite3.connect("albums.db")
 cursor=conn.cursor()
@@ -9,26 +8,22 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS albums (
                     artist TEXT,
                     genre TEXT,
                     year INTEGER,
-                    recommended TEXT,
-                    link TEXT
+                    recommended TEXT
                 )''')
     
 conn.commit()
 conn.close()
 
-def addAlbum(title,artist,genre,year,recommendation,link):
+def addAlbum(title,artist,genre,year,recommendation):
     conn=sqlite3.connect('albums.db')
     cursor = conn.cursor()
-    try:
-        cursor.execute('SELECT id FROM albums WHERE title = ? AND artist = ?', (title, artist))
-    except:
-        print("EMPTY DATABASE")
+    cursor.execute('SELECT id FROM albums WHERE title = ? AND artist = ?', (title, artist))
     existing_album = cursor.fetchone()
     if existing_album:
         conn.close()
         return
-    cursor.execute('''INSERT INTO albums (title, artist, genre, year, recommended,link)
-                      VALUES (?, ?, ?, ?, ?, ?)''', (title, artist, genre, year, recommendation,link))
+    cursor.execute('''INSERT INTO albums (title, artist, genre, year, recommended)
+                      VALUES (?, ?, ?, ?, ?)''', (title, artist, genre, year, recommendation))
     conn.commit()
     conn.close()
 
@@ -42,7 +37,7 @@ def removeRecommendation(search):
         return "Successfuly removed item."
     else:
         return"Item does not exist."
-
+        
 
 def listDatabase():
     conn = sqlite3.connect('albums.db')
@@ -67,8 +62,6 @@ def format_albums(albums):
     formatted_albums = []
     for album in albums:
         formatted_album = f"{album[1]} -{album[2]} {album[3]} {album[4]} Recommended by: {album[5]}\n"
-        if album[6]:
-            formatted_album+=album[6]
         formatted_albums.append(formatted_album)
     return formatted_albums
 
@@ -98,39 +91,40 @@ def getRecommendation():
         return None
 
 def main():
-    while(True):
+    while True:
         print("")
         print("1. Get Recommendation")
         print("2. Insert Album")
-        print("3. Remove Album")
-        print("4. List Table")
-        print("5. Clear Table")
-        print("6. QUIT")
+        print("3. Remove album")
+        print("4. Clear Table")
+        print("5. Print Database")
+        print("6. Quit")
         print("")
-        opt=int(input())
-    
-        if opt==1:
-            print((getRecommendation()))
-        elif opt==2:
-            title=str(input("TITLE: "))
-            artist=str(input("ARTIST: "))
-            genre=str(input("GENRE: "))
-            year=int(input("YEAR: ")) 
-            recommended=str(input("WHO RECOMMENDED? "))
-            addAlbum(title,artist,genre,year,recommended)
-        elif opt==3:
-            search=str(input("Title to remove: "))
+        opt = int(input())
+
+        if opt == 1:
+            recc=getRecommendation()
+            print(recc)
+        elif opt == 2:
+            title = str(input("TITLE: "))
+            artist = str(input("ARTIST: "))
+            genre = str(input("GENRE: "))
+            year = int(input("YEAR: ")) 
+            recommended = str(input("WHO RECOMMENDED? "))
+            addAlbum(title, artist, genre, year, recommended)
+        elif opt == 3:
+            search = str(input("Title to remove: "))
             removeRecommendation(search) 
-        elif opt==4:
-            listDatabase()
-        elif opt==5:
-            confirm=str(input("ARE YOU SURE??? "))
-            if confirm=='y' or confirm=='yes':
+        elif opt == 4:
+            confirm = str(input("ARE YOU SURE? This will delete all data. (y/n): "))
+            if confirm.lower() in ['y', 'yes']:
                 emptyDatabase()
-        elif opt==6:
+        elif opt == 5:
+            listDatabase()
+        elif opt == 6:
             break
         else:
             print("INVALID INPUT")
-        
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
