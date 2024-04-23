@@ -1,5 +1,4 @@
 install:
-	sudo apt install python3
 	pip install discord
 	pip install spotipy
 	pip install datetime
