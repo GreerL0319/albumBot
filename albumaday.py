@@ -9,23 +9,25 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS albums (
                     genre TEXT,
                     year INTEGER,
                     recommended TEXT
+                    link TEXT
                 )''')
     
 conn.commit()
 conn.close()
 
-def addAlbum(title,artist,genre,year,recommendation):
-    conn=sqlite3.connect('albums.db')
+def addAlbum(title, artist, genre, year, recommendation, link):
+    conn = sqlite3.connect('albums.db')
     cursor = conn.cursor()
     cursor.execute('SELECT id FROM albums WHERE title = ? AND artist = ?', (title, artist))
     existing_album = cursor.fetchone()
     if existing_album:
         conn.close()
         return
-    cursor.execute('''INSERT INTO albums (title, artist, genre, year, recommended)
-                      VALUES (?, ?, ?, ?, ?)''', (title, artist, genre, year, recommendation))
+    cursor.execute('''INSERT INTO albums (title, artist, genre, year, recommended, link)
+                      VALUES (?, ?, ?, ?, ?, ?)''', (title, artist, genre, year, recommendation, link))
     conn.commit()
     conn.close()
+
 
 def removeRecommendation(search):
     conn = sqlite3.connect('albums.db')
@@ -111,7 +113,7 @@ def main():
             genre = str(input("GENRE: "))
             year = int(input("YEAR: ")) 
             recommended = str(input("WHO RECOMMENDED? "))
-            addAlbum(title, artist, genre, year, recommended)
+            addAlbum(title, artist, genre, year, recommended,"")
         elif opt == 3:
             search = str(input("Title to remove: "))
             removeRecommendation(search) 

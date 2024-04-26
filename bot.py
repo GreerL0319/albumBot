@@ -82,17 +82,13 @@ async def listDB(ctx):
     
 @bot.command()    
 async def getQueue(ctx):
-    f = open('queue.txt', 'a')
-    f.tell()  # Show the position of the cursor
-    # As you can see, the position is at the end
-    f.seek(0, 0) # Put the position at the beginning
-    f.truncate() # Truncate the file
     albums = getDB()
-    for album in albums:
-        f.write(album + "\n\n")
-    f.close()  # Close the file
-
     if albums:
+        # Write albums to a temporary file
+        with open('queue.txt', 'w', encoding='utf-8') as f:
+            for album in albums:
+                f.write(album + "\n\n")
+
         # Create a discord.File object from the file
         file_discord = discord.File('queue.txt', filename='queue.txt')
         # Send the file as an attachment
