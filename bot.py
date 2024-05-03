@@ -1,4 +1,4 @@
-import discord
+﻿import discord
 from discord.ext import commands, tasks
 import asyncio
 import datetime
@@ -79,22 +79,64 @@ async def recommend(ctx, *, args):
 @bot.command()    
 async def listDB(ctx):
     listDatabase()
-    
+
+def createPages(albums):
+    pages = []
+    per_page = 7
+    for i in range(0, len(albums), per_page):
+        embed = discord.Embed(title="Queue", color=discord.Color.blue())
+        for album in albums[i:i + per_page]:
+            if 'link' in album:
+                title = f"[{album['title']} - {album['artist']}]({album['link']})"
+
+            else:
+                title = f"{album['title']} - {album['artist']}"
+            value = f"Genre: {album['genre']}\nYear: {album['year']}\nRecommended by: {album['recommended']}"
+            embed.add_field(
+                name=title,
+                value=value,
+                inline=False
+            )
+        pages.append(embed)
+    return pages
+
+
 @bot.command()    
 async def getQueue(ctx):
     albums = getDB()
     if albums:
-        # Write albums to a temporary file
-        with open('queue.txt', 'w', encoding='utf-8') as f:
-            for album in albums:
-                f.write(album + "\n\n")
+        embed_pages = createPages(albums)
+        total_pages = len(embed_pages)
+        current_page = 0
+        message = await ctx.send(embed=embed_pages[current_page])
+        await message.add_reaction('◀️')
+        await message.add_reaction('▶️')
 
-        # Create a discord.File object from the file
-        file_discord = discord.File('queue.txt', filename='queue.txt')
-        # Send the file as an attachment
-        await ctx.send(file=file_discord)
+        def check(reaction, user):
+            return reaction.message.id == message.id and str(reaction.emoji) in ['◀️', '▶️']
+
+        while True:
+            try:
+                reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                break
+
+            if str(reaction.emoji) == '◀️':
+                current_page = (current_page - 1) % total_pages
+            elif str(reaction.emoji) == '▶️':
+                current_page = (current_page + 1) % total_pages
+
+            embed = embed_pages[current_page]
+            # Add page counter at the bottom
+            embed.set_footer(text=f"Page {current_page + 1}/{total_pages}")
+            await message.edit(embed=embed)
+            await message.remove_reaction(reaction, user)
+
+
+
+
     else:
-        await ctx.send("Nobody has recommended any albums.")
+        await ctx.send("The queue is empty.")
         
 @bot.command()
 async def removeItem(ctx,title: str):
