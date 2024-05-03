@@ -73,8 +73,21 @@ def getDB():
     cursor.execute('SELECT * FROM albums')
     all_albums = cursor.fetchall()
     conn.close()
-    all_albums=format_albums(all_albums)
-    return all_albums
+    
+    formatted_albums = []
+    for album in all_albums:
+        formatted_album = {
+            "title": album[1],
+            "artist": album[2],
+            "genre": album[3],
+            "year": album[4],
+            "recommended": album[5],
+            "link": album[6]
+        }
+        formatted_albums.append(formatted_album)
+        
+    return formatted_albums
+
 
 def getRecommendation():
     conn = sqlite3.connect('albums.db')

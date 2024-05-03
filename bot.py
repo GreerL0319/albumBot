@@ -3,10 +3,29 @@ from discord.ext import commands, tasks
 import asyncio
 import datetime
 import os
+import aiohttp
 from dotenv import load_dotenv 
 from albumaday import *
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
+
+
+conn=sqlite3.connect("albums.db")
+cursor=conn.cursor()
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS albums (
+                    id INTEGER PRIMARY KEY,
+                    title TEXT,
+                    artist TEXT,
+                    genre TEXT,
+                    year INTEGER,
+                    recommended TEXT
+                    link TEXT
+                )''')
+    
+conn.commit()
+conn.close()
+
 
 load_dotenv()
 DISCORD_TOKEN=os.getenv('DISCORD_TOKEN')
@@ -36,6 +55,22 @@ async def sendAlbum(override=None):
             if album:
                 await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
                 print("the album of the day is",album)
+                query = f"album:{album[1]} artist:{album[2]}"
+                results = sp.search(q=query, type='album', limit=1)
+                try:
+                    if results['albums']['items']:
+                        album_data = results['albums']['items'][0]
+                        albumCover=album_data['images'][0]['url']
+                        async with aiohttp.ClientSession() as session:
+                            async with session.get(albumCover) as resp:
+                                if resp.status != 200:
+                                    return await thread.send('Could not download album cover...')
+                                image_data = await resp.read()
+
+                        await bot.user.edit(avatar=image_data)
+                except:
+                    print("album cover not found")
+
             else:
                 await thread.send("I have no items in my database :(")
 
@@ -109,35 +144,46 @@ async def getQueue(ctx):
         total_pages = len(embed_pages)
         current_page = 0
         message = await ctx.send(embed=embed_pages[current_page])
+        
+        # Add numbered reactions
         await message.add_reaction('◀️')
+        number_emotes = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣']
+        for i in range(total_pages):
+            await message.add_reaction(f"{number_emotes[i]}")
+
         await message.add_reaction('▶️')
 
         def check(reaction, user):
-            return reaction.message.id == message.id and str(reaction.emoji) in ['◀️', '▶️']
-
+            return reaction.message.id == message.id and (str(reaction.emoji) in number_emotes or str(reaction.emoji) in ['◀️', '▶️']) and user == ctx.author
+        
         while True:
             try:
                 reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
             except asyncio.TimeoutError:
                 break
-
+            
+            # If arrow reaction is chosen, navigate between pages accordingly
             if str(reaction.emoji) == '◀️':
                 current_page = (current_page - 1) % total_pages
             elif str(reaction.emoji) == '▶️':
                 current_page = (current_page + 1) % total_pages
-
+            # If numbered reaction is chosen, navigate to the corresponding page
+            elif str(reaction.emoji) in number_emotes:
+                page_number = number_emotes.index(str(reaction.emoji)) + 1
+                current_page = page_number - 1
+            
             embed = embed_pages[current_page]
             # Add page counter at the bottom
             embed.set_footer(text=f"Page {current_page + 1}/{total_pages}")
             await message.edit(embed=embed)
-            await message.remove_reaction(reaction, user)
-
-
-
-
+            
+            # Remove user's reaction immediately after choosing a new page
+            await message.remove_reaction(reaction.emoji, ctx.author)
     else:
         await ctx.send("The queue is empty.")
-        
+
+
+
 @bot.command()
 async def removeItem(ctx,title: str):
     username = ctx.author.name
