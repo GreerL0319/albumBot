@@ -114,6 +114,17 @@ def getRecommendation():
         conn.close()
         return None
 
+def updateRecommendation(title, new_recommendation):
+    conn = sqlite3.connect('albums.db')
+    cursor = conn.cursor()
+    cursor.execute('UPDATE albums SET recommended = ? WHERE title LIKE ?', (new_recommendation, title))
+    conn.commit()
+    conn.close()
+    if cursor.rowcount > 0:
+        return "Recommendation updated successfully."
+    else:
+        return "Album not found."
+
 def main():
     while True:
         print("")
@@ -122,33 +133,39 @@ def main():
         print("3. Remove album")
         print("4. Clear Table")
         print("5. Print Database")
-        print("6. Quit")
+        print("6. Update Recommendation")
+        print("7. Quit")
         print("")
-        opt = int(input())
+        opt = input("Select an option: ")
 
-        if opt == 1:
-            recc=getRecommendation()
+        if opt == '1':
+            recc = getRecommendation()
             print(recc)
-        elif opt == 2:
-            title = str(input("TITLE: "))
-            artist = str(input("ARTIST: "))
-            genre = str(input("GENRE: "))
+        elif opt == '2':
+            title = input("TITLE: ")
+            artist = input("ARTIST: ")
+            genre = input("GENRE: ")
             year = int(input("YEAR: ")) 
-            recommended = str(input("WHO RECOMMENDED? "))
+            recommended = input("WHO RECOMMENDED? ")
             addAlbum(title, artist, genre, year, recommended,"")
-        elif opt == 3:
-            search = str(input("Title to remove: "))
+        elif opt == '3':
+            search = input("Title to remove: ")
             removeRecommendation(search) 
-        elif opt == 4:
-            confirm = str(input("ARE YOU SURE? This will delete all data. (y/n): "))
+        elif opt == '4':
+            confirm = input("ARE YOU SURE? This will delete all data. (y/n): ")
             if confirm.lower() in ['y', 'yes']:
                 emptyDatabase()
-        elif opt == 5:
+        elif opt == '5':
             listDatabase()
-        elif opt == 6:
+        elif opt == '6':
+            title = input("TITLE: ")
+            recommended = input("WHO RECOMMENDED? ")
+            print(updateRecommendation(title, recommended))
+        elif opt == '7':
             break
         else:
             print("INVALID INPUT")
 
 if __name__ == "__main__":
     main()
+
