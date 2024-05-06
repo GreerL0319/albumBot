@@ -63,11 +63,15 @@ else:
 if os.path.exists(channels_file):
     with open(channels_file, "r") as f:
         for line in f:
-            channels.append(int(line.strip()))
+            line = line.strip()
+            if line:  # Check if the line is not empty
+                channels.append(int(line))
 else:
     with open(channels_file, "w"):
         pass  # Create an empty file
-            
+
+    
+print(channels)
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
@@ -331,19 +335,33 @@ async def demote(ctx, user_name: str):
 # Command to add the album of the week channel
 @bot.command()
 async def setChannel(ctx):
-    # Check if the channel is already added
-    with open(channels_file, "r") as f:
-        channels = f.readlines()
-        if str(ctx.channel.id) in channels:
-            await ctx.send("This channel is already the album of the week channel.")
-            return
+    for admin in admins:
+        if admin==ctx.author.name:
+            # Check if the channel is already added
+            with open(channels_file, "r") as f:
+                if ctx.channel.id in channels:
+                    await ctx.send("This channel is already the album of the week channel.")
+                    return
 
-    with open(channels_file, "a") as f:
-        f.write(str(ctx.channel.id) + "\n")
-    await ctx.send(f"{ctx.channel.name} has been set as the album of the week channel.")
-        
-        
-        
+            with open(channels_file, "a") as f:
+                f.write(str(ctx.channel.id) + "\n")
+            await ctx.send(f"{ctx.channel.name} has been set as the album of the week channel.")
+ 
+@bot.command()
+async def removeChannel(ctx):
+    for admin in admins:
+        if admin==ctx.author.name:
+            # Check if the channel is in the list of channels
+            with open(channels_file, "r") as f:
+                if ctx.channel.id not in channels:
+                    await ctx.send("This channel is not the album of the week channel.")
+                    return
+
+            # Remove the channel from the list and update the file
+            channels.remove(ctx.channel.id)
+            with open(channels_file, "w") as f:
+                f.writelines(str(channel for channel in channels))
+            await ctx.send(f"{ctx.channel.name} has been removed as the album of the week channel.")
         
 
 bot.run(DISCORD_TOKEN)
