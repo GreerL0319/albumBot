@@ -1,10 +1,7 @@
 ﻿
-import discord
-from discord.ext import commands
-from albumaday import *
-import asyncio
 
-from utils import admins, channels,admins_file,channels_file
+from albumaday import *
+from utils import *
 
 intents = discord.Intents.default()
 intents.message_content = True

@@ -1,17 +1,11 @@
-﻿import discord
-from discord.ext import commands, tasks
-from commands import bot
-from utils import channels
+﻿
 import asyncio
-import datetime
-import sqlite3
 import aiohttp
-from dotenv import load_dotenv 
+import datetime
+
 from albumaday import getRecommendation
-import spotipy
-import os
-from spotipy.oauth2 import SpotifyClientCredentials
-import pytz  # Import the pytz module for handling timezones
+from utils import *
+from commands import bot
 
 conn=sqlite3.connect("albums.db")
 cursor=conn.cursor()
@@ -28,18 +22,6 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS albums (
     
 conn.commit()
 conn.close()
-
-
-load_dotenv()
-DISCORD_TOKEN=os.getenv('DISCORD_TOKEN')
-SPOTIFY_ID=os.getenv('SPOTIFY_ID')
-SPOTIFY_SECRET=os.getenv('SPOTIFY_SECRET')
-
-client_credentials_manager = SpotifyClientCredentials(client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET)
-sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-
-
-cst = pytz.timezone('America/Chicago')
 
 
     
