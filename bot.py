@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from albumaday import *
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-
+import pytz  # Import the pytz module for handling timezones
 
 conn=sqlite3.connect("albums.db")
 cursor=conn.cursor()
@@ -40,41 +40,73 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 
+cst = pytz.timezone('America/Chicago')
+
+
+admins_file = "admins.txt"
+channels_file = "channels.txt"
+
+
+admins = []
+channels = []
+
+#make file for admins if not already exists
+if os.path.exists(admins_file):
+        with open(admins_file, "r") as f:
+            for line in f:
+                admins.append(line.strip())
+else:
+    with open(admins_file, "w"):
+        pass  # Create an empty file
+    
+#make file for channels if not already exist
+if os.path.exists(channels_file):
+    with open(channels_file, "r") as f:
+        for line in f:
+            channels.append(int(line.strip()))
+else:
+    with open(channels_file, "w"):
+        pass  # Create an empty file
+            
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
     await bot.wait_until_ready()  # Wait until the bot is fully ready
     ifMinute.start()
-    
+
 @tasks.loop(minutes=1)
 async def ifMinute():
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if now.minute==0:
+    now = datetime.datetime.now(tz=cst)  # Use CST timezone
+    if now.minute == 0:
+        print("correct minute")
         ifHour.start()
         ifMinute.cancel()
-    
+
 @tasks.loop(hours=1)
 async def ifHour():
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if now.hour==0:
+    now = datetime.datetime.now(tz=cst)  # Use CST timezone
+    if now.hour == 0:
+        print("correct hour")
         ifDay.start()
         ifHour.cancel()
-    
+
 @tasks.loop(hours=24)
 async def ifDay():
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if now.weekday==6:
+    now = datetime.datetime.now(tz=cst)  # Use CST timezone
+    if now.weekday() == 6:  # Sunday
+        print("correct day")
         sendAlbum.start()
         ifDay.cancel()
 
     
 @tasks.loop(hours=168)
 async def sendAlbum(override=None):
-    thread = bot.get_channel(1228434151464505465)  # id for album of the day thread
-    if thread:
+    for channel in channels:
+        thread = bot.get_channel(channel)  # id for album of the day thread
         album = getRecommendation()
         if album:
-            await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
+            message=await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
+            
             query = f"album:{album[1]} artist:{album[2]}"
             results = sp.search(q=query, type='album', limit=1)
 
@@ -84,7 +116,7 @@ async def sendAlbum(override=None):
                 artist_name = album_data['artists'][0]['name']
 
                 # Update bot's status
-                await bot.change_presence(activity=discord.Game(name=f"{album_title} - {artist_name} (Recommended by: {album[5]})"))
+                await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name=f"{album_title} - {artist_name} (Recommended by: {album[5]})"))
 
                 album_cover_url = album_data['images'][0]['url']
 
@@ -104,7 +136,7 @@ async def sendAlbum(override=None):
 
 
 
-@bot.command()
+@bot.command(name="recommend", aliases=["recc"])  # Both /recommend and /recc will trigger this command
 async def recommend(ctx, *, args):
     # Split the arguments by commas
     args_list = args.split(',')
@@ -212,24 +244,107 @@ async def getQueue(ctx):
     else:
         await ctx.send("The queue is empty.")
 
-
-
 @bot.command()
-async def removeItem(ctx,title: str):
+async def remove(ctx,title: str):
     username = ctx.author.name
-    if username=="thisgreer":
-        result=removeRecommendation(title)
-        await ctx.send(result)
-    else:
-        await ctx.send("You do not have permissions to remove items.")
+    recommended=getRecommended("title",title)
+    for admin in admins:
+        if username==admin or username==recommended:
+            result=removeRecommendation(title)
+            await ctx.send(result)
+        else:
+            await ctx.send("You do not have permissions to remove this item.")
 
 @bot.command()
 async def reroll(ctx):
-    username=ctx.author.name
-    if username=="thisgreer":
-        await sendAlbum(1)#send the 1 as an override to the loop
+    username = ctx.author.name
+    for admin in admins:
+        if username == admin:
+            await sendAlbum(1)  # send the 1 as an override to the loop
+            return
+
+    # If the user is not an admin, create a poll
+    embed = discord.Embed(title="Reroll Album?", color=discord.Color.blue())
+    value = "Vote with reactions. Poll ends in an hour"
+    embed.add_field(
+        name="Poll",
+        value=value,
+        inline=False
+    )
+    embed.set_footer(text="Need at least 3 votes...")
+    message = await ctx.send(embed=embed)
+    await message.add_reaction('✅')
+    await message.add_reaction('❌')
+    await asyncio.sleep(3600)#sleep for an hour
+    message = await ctx.channel.fetch_message(message.id)
+
+    yes_count = 0
+    no_count = 0
+    for reaction in message.reactions:
+        if str(reaction.emoji) == '✅':
+            yes_count = reaction.count - 1  # Subtract 1 to exclude bot's reaction
+        elif str(reaction.emoji) == '❌':
+            no_count = reaction.count - 1   # Subtract 1 to exclude bot's reaction
+
+    # Check if the poll was successful (at least 3 yes votes)
+    conclusion=""        
+    if yes_count >= 3 and yes_count>no_count:
+        conclusion="The people have spoken! The reroll is a success!"
+        await sendAlbum(1)
+    if yes_count<3:
+        conclusion="The people have not spoken... Poll discarded."
+    if no_count>yes_count:
+        conclusion="The people have spoken! The reroll is a failure!"
+    embed.set_footer(text=conclusion)
+    await message.edit(embed=embed)
+    
+@bot.command()
+async def promote(ctx, user_name: str):
+    if ctx.author.name == admins[0]:
+        # Check if the user is already an admin
+        if user_name in admins:
+            await ctx.send(f"{user_name} is already an admin.")
+        else:
+            # Add the user to the admins list and write to file
+            admins.append(user_name)
+            with open(admins_file, "a") as f:
+                f.write(user_name + "\n")
+            await ctx.send(f"{user_name} has been promoted as an admin.")
     else:
-        await ctx.send("You do not have permissions to reroll the album.")
+        await ctx.send("Only the bot owner can add admins.")
+
+@bot.command()
+async def demote(ctx, user_name: str):
+    if ctx.author.name == admins[0]:
+        # Check if the user is an admin
+        if user_name in admins:
+            # Remove the user from the admins list and update file
+            admins.remove(user_name)
+            with open(admins_file, "w") as f:
+                f.writelines(admin + "\n" for admin in admins)
+            await ctx.send(f"{user_name} no longer has admin.")
+        else:
+            await ctx.send(f"{user_name} is not an admin.")
+    else:
+        await ctx.send("Only the bot owner can demote admins.")
+
+# Command to add the album of the week channel
+@bot.command()
+async def setChannel(ctx):
+    # Check if the channel is already added
+    with open(channels_file, "r") as f:
+        channels = f.readlines()
+        if str(ctx.channel.id) in channels:
+            await ctx.send("This channel is already the album of the week channel.")
+            return
+
+    with open(channels_file, "a") as f:
+        f.write(str(ctx.channel.id) + "\n")
+    await ctx.send(f"{ctx.channel.name} has been set as the album of the week channel.")
         
+        
+        
+        
+
 bot.run(DISCORD_TOKEN)
 input("Press Enter to exit...")

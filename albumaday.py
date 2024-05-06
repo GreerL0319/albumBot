@@ -60,6 +60,16 @@ def emptyDatabase():
     conn.close()
     print("Database emptied successfully.")
 
+def getRecommended(attribute, value):
+    conn = sqlite3.connect('albums.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT recommended FROM albums WHERE {} = ?'.format(attribute), (value,))
+    result = cursor.fetchone()
+    conn.close()
+    print(result[0])
+    return result[0]
+
+
 def format_albums(albums):
     formatted_albums = []
     for album in albums:
@@ -87,7 +97,6 @@ def getDB():
         formatted_albums.append(formatted_album)
         
     return formatted_albums
-
 
 def getRecommendation():
     conn = sqlite3.connect('albums.db')
