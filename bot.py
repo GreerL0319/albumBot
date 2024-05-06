@@ -2,6 +2,7 @@
 from discord.ext import commands, tasks
 import asyncio
 import datetime
+import random
 import os
 import aiohttp
 from dotenv import load_dotenv 
@@ -43,36 +44,65 @@ bot = commands.Bot(command_prefix='/', intents=intents)
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
     await bot.wait_until_ready()  # Wait until the bot is fully ready
-    sendAlbum.start()
-
-@tasks.loop(hours=1)
-async def sendAlbum(override=None):
+    ifMinute.start()
+    
+@tasks.loop(minutes=1)
+async def ifMinute():
     now = datetime.datetime.now(tz=datetime.timezone.utc)
-    if now.hour==15 or override:#10am cst
-        thread=bot.get_channel(1228434151464505465)#id for album of the day thread
-        if thread:
-            album=getRecommendation()
-            if album:
-                await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
-                print("the album of the day is",album)
-                query = f"album:{album[1]} artist:{album[2]}"
-                results = sp.search(q=query, type='album', limit=1)
-                try:
-                    if results['albums']['items']:
-                        album_data = results['albums']['items'][0]
-                        albumCover=album_data['images'][0]['url']
-                        async with aiohttp.ClientSession() as session:
-                            async with session.get(albumCover) as resp:
-                                if resp.status != 200:
-                                    return await thread.send('Could not download album cover...')
-                                image_data = await resp.read()
+    if now.minute==0:
+        ifHour.start()
+        ifMinute.cancel()
+    
+@tasks.loop(hours=1)
+async def ifHour():
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if now.hour==0:
+        ifDay.start()
+        ifHour.cancel()
+    
+@tasks.loop(hours=24)
+async def ifDay():
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    if now.weekday==6:
+        sendAlbum.start()
+        ifDay.cancel()
 
-                        await bot.user.edit(avatar=image_data)
-                except:
-                    print("album cover not found")
+    
+@tasks.loop(hours=168)
+async def sendAlbum(override=None):
+    thread = bot.get_channel(1228434151464505465)  # id for album of the day thread
+    if thread:
+        album = getRecommendation()
+        if album:
+            await thread.send(f"**Today's album of the day:** \n***{album[1]}- {album[2]}***.\n*Genre: {album[3]}\nReleased: {album[4]}.\nRecommended by:* ***{album[5]}\n***{album[6]}")
+            query = f"album:{album[1]} artist:{album[2]}"
+            results = sp.search(q=query, type='album', limit=1)
 
+            if results and results['albums']['items']:
+                album_data = results['albums']['items'][0]
+                album_title = album_data['name']
+                artist_name = album_data['artists'][0]['name']
+
+                # Update bot's status
+                await bot.change_presence(activity=discord.Game(name=f"{album_title} - {artist_name} (Recommended by: {album[5]})"))
+
+                album_cover_url = album_data['images'][0]['url']
+
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(album_cover_url) as resp:
+                        if resp.status != 200:
+                            print('Could not download album cover...')
+                        image_data = await resp.read()
+
+                await bot.user.edit(avatar=image_data)
+
+                print("The album of the day is", album)
             else:
-                await thread.send("I have no items in my database :(")
+                await thread.send("Album not found on Spotify.")
+        else:
+            await thread.send("I have no items in my database :(")
+
+
 
 @bot.command()
 async def recommend(ctx, *, args):
@@ -109,7 +139,7 @@ async def recommend(ctx, *, args):
         else:
             await ctx.send("Sorry, I could not find your album")
     else:
-        await ctx.send("Invalid number of arguments. Please provide album, artist, genre, and year separated by commas.")
+        await ctx.send("Invalid number of arguments. Please provide album, artist.")
 
 @bot.command()    
 async def listDB(ctx):
