@@ -1,5 +1,6 @@
 ﻿
 
+from tkinter import CURRENT
 from albumaday import *
 from utils import *
 
@@ -90,6 +91,9 @@ async def paginate_embed(ctx, embed_pages):
         try:
             reaction, user = await bot.wait_for('reaction_add', timeout=60.0, check=check)
         except asyncio.TimeoutError:
+            embed=embed_pages[current_page]
+            embed.set_footer(text=f'Page {current_page + 1}/{total_pages} TIMED OUT')
+            await message.edit(embed=embed)
             break
             
         if str(reaction.emoji) == '◀️':
@@ -122,7 +126,7 @@ async def albumHelp(ctx):
         ("/albumHelp", "Display this help message."),
         ("/recommend <album>, <artist>", "Recommend an album."),
         ("/getQueue", "Display the album queue with pagination."),
-        ("/remove <title>", "Remove your own album or admin override."),
+        ("/removeAlbum <title>", "Remove your own album or admin override."),
         ("/reroll", "Vote to reroll or admin override"),
         ("/promote <username>", "Promote a user to admin. (GREER ONLY)"),
         ("/demote <username>", "Demote an admin.(GREER ONLY)"),
@@ -142,15 +146,19 @@ async def albumHelp(ctx):
 
 
 @bot.command()
-async def remove(ctx,title: str):
+async def removeAlbum(ctx, *, title):
     username = ctx.author.name
-    recommended=getRecommended("title",title)
+    recommended = getRecommended("title", title)
     for admin in admins:
-        if username==admin or username==recommended:
-            result=removeRecommendation(title)
-            await ctx.send(result)
-        else:
-            await ctx.send("You do not have permissions to remove this item.")
+        if username == admin or username == recommended:
+            result = removeRecommendation(title)
+            if result:
+                await ctx.send(result)
+            else:
+                await ctx.send("Album not found.")
+            return  # Exit the loop early if permission check passes
+    await ctx.send("You do not have permissions to remove this item.")
+
 
 @bot.command()
 async def reroll(ctx):

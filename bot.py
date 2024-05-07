@@ -4,8 +4,8 @@ import aiohttp
 import datetime
 
 from albumaday import getRecommendation
-from utils import *
 from commands import bot
+from utils import *
 
 conn=sqlite3.connect("albums.db")
 cursor=conn.cursor()
@@ -24,12 +24,12 @@ conn.commit()
 conn.close()
 
 
-    
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
     await bot.wait_until_ready()  # Wait until the bot is fully ready
     ifMinute.start()
+
 
 @tasks.loop(minutes=1)
 async def ifMinute():

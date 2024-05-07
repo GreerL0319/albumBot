@@ -66,8 +66,10 @@ def getRecommended(attribute, value):
     cursor.execute('SELECT recommended FROM albums WHERE {} = ?'.format(attribute), (value,))
     result = cursor.fetchone()
     conn.close()
-    print(result[0])
-    return result[0]
+    if result:
+        print(result[0])
+        return result[0]
+    else: return None
 
 
 def format_albums(albums):
